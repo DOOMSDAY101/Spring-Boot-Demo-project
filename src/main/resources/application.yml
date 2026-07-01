@@ -3,7 +3,8 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-    pool-size: ${DB_POOL_SIZE}
+    pool-size: ${DB_POOL_SIZE:30}
+    driver-class-name: org.postgresql.Driver
   flyway:
     enabled: true
   jpa:
@@ -11,3 +12,5 @@ spring:
       ddl-auto: validate
 jwt:
   secret: ${JWT_SECRET}
+server:
+  port: ${PORT:8080}
