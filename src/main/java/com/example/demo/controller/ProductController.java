@@ -86,6 +86,7 @@ public class ProductController {
             @RequestPart Product product,
             @RequestPart MultipartFile imageFile) {
         try {
+
             Product product1 = productService.addProduct(product, imageFile);
             return new ResponseEntity<>(product1, HttpStatus.CREATED);
         } catch (Exception e) {
