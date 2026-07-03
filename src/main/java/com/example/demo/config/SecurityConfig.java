@@ -25,11 +25,14 @@ public class SecurityConfig {
 
     private UserDetailsService userDetailsService;
     private JwtFilter jwtFilter;
+    private final OtpActionTokenFilter otpActionTokenFilter;
 
     @Autowired
-    public SecurityConfig(UserDetailsService userDetailsService, JwtFilter jwtFilter) {
+    public SecurityConfig(UserDetailsService userDetailsService, JwtFilter jwtFilter,
+            OtpActionTokenFilter otpActionTokenFilter) {
         this.userDetailsService = userDetailsService;
         this.jwtFilter = jwtFilter;
+        this.otpActionTokenFilter = otpActionTokenFilter;
     }
 
     @Bean
@@ -53,6 +56,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 // .httpBasic(Customizer.withDefaults())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(otpActionTokenFilter, JwtFilter.class)
                 .build();
     }
 

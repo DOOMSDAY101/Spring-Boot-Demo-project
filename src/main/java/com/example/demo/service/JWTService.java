@@ -16,6 +16,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -25,6 +26,9 @@ public class JWTService {
 
     @Value("${jwt.secret}")
     private String secretKey;
+
+    private static final String SCOPE_ADD_PRODUCT = "ADD_PRODUCT";
+    private static final long EXPIRY_MILLIS = 5 * 60 * 1000; // 5 minutes
 
     // public JWTService() {
     // try {
@@ -48,7 +52,7 @@ public class JWTService {
                 .add(claims)
                 .subject(username)
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis()  + Duration.ofMinutes(15).toMillis()))
+                .expiration(new Date(System.currentTimeMillis() + Duration.ofMinutes(15).toMillis()))
                 .and()
                 .signWith(getKey())
                 .compact();
@@ -88,6 +92,43 @@ public class JWTService {
 
     private Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
+    }
+
+    // SHORT LIVED TOKEN
+    public String generateActionToken(String username) {
+        return Jwts.builder()
+                .claims()
+                .add("scope", SCOPE_ADD_PRODUCT)
+                .subject(username)
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(System.currentTimeMillis() + EXPIRY_MILLIS))
+                .and()
+                .signWith(getKey())
+                .compact();
+    }
+
+    /**
+     * Returns true only if the token is valid, unexpired, has the right scope,
+     * and belongs to the given username.
+     */
+    public boolean validateActionToken(String token, String username) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(getKey())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+
+            String subject = claims.getSubject();
+            String scope = claims.get("scope", String.class);
+
+            return subject != null
+                    && subject.equals(username)
+                    && SCOPE_ADD_PRODUCT.equals(scope);
+
+        } catch (JwtException e) {
+            return false;
+        }
     }
 
 }

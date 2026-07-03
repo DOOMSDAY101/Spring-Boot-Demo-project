@@ -12,35 +12,58 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.example.demo.Dto.ProductResponse;
+import com.example.demo.Dto.UserSummaryDto;
 import com.example.demo.model.Product;
+import com.example.demo.model.Users;
 import com.example.demo.repository.ProductRepo;
+import com.example.demo.repository.UserRepo;
 
 @Service
 public class ProductService {
 
     private final ProductRepo productRepo;
+    private final UserRepo usersRepository;
 
     @Autowired
-    public ProductService(ProductRepo productRepo) {
+    public ProductService(ProductRepo productRepo, UserRepo usersRepository) {
         this.productRepo = productRepo;
+        this.usersRepository = usersRepository;
     }
 
     @Cacheable("products")
-    public List<Product> getAllProducts() {
+    public List<ProductResponse> getAllProducts() {
         System.out.println("Fetching from database...");
-        return productRepo.findAll();
+
+        return productRepo.findAll()
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     @Cacheable(value = "product", key = "#id")
-    public Product getProductById(int id) {
-        return productRepo.findById(id).orElse(null);
+    public ProductResponse getProductById(int id) {
+        Product product = productRepo.findById(id).orElse(null);
+
+        return product == null ? null : toResponse(product);
     }
 
     @Caching(evict = {
             @CacheEvict(value = "products", allEntries = true),
             @CacheEvict(value = "search", allEntries = true)
     })
-    public Product addProduct(Product product, MultipartFile imageFile) throws IOException {
+    public Product addProduct(
+            Product product,
+            MultipartFile imageFile,
+            String username) throws IOException {
+
+        Users user = usersRepository.findByUsername(username);
+
+        if (user == null) {
+            throw new RuntimeException("User not found");
+        }
+
+        product.setCreatedBy(user);
         product.setImageName(imageFile.getOriginalFilename());
         product.setImageType(imageFile.getContentType());
         product.setImageData(imageFile.getBytes());
@@ -72,7 +95,33 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     @Cacheable(value = "search", key = "#keyword.trim().toLowerCase()")
-    public List<Product> searchProducts(String keyword) {
-        return productRepo.searchProducts(keyword);
+    public List<ProductResponse> searchProducts(String keyword) {
+
+        return productRepo.searchProducts(keyword)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    private ProductResponse toResponse(Product product) {
+
+        return ProductResponse.builder()
+                .id(product.getId())
+                .name(product.getName())
+                .description(product.getDescription())
+                .brand(product.getBrand())
+                .price(product.getPrice())
+                .category(product.getCategory())
+                .releaseDate(product.getReleaseDate())
+                .available(product.isAvailable())
+                .quantity(product.getQuantity())
+                .imageData(product.getImageData())
+                .imageName(product.getImageName())
+                .imageType(product.getImageType())
+                .createdBy(
+                        new UserSummaryDto(
+                                product.getCreatedBy().getId(),
+                                product.getCreatedBy().getUsername()))
+                .build();
     }
 }
